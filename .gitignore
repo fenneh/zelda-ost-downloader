@@ -1,0 +1,14 @@
+# Ignore MP3 files
+*.mp3
+
+# Ignore download directory
+zelda_music/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/ 
