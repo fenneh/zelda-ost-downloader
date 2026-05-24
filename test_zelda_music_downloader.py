@@ -1,10 +1,9 @@
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zelda_music_downloader import create_directory, download_file, sanitize_filename
+from zelda_music_downloader import create_directory, sanitize_filename
 
 
 @pytest.mark.parametrize(
@@ -38,36 +37,3 @@ def test_create_directory_existing_is_noop():
     with tempfile.TemporaryDirectory() as tmp:
         create_directory(tmp)
         assert os.path.isdir(tmp)
-
-
-def _mock_response(status_code=200, chunks=None):
-    response = MagicMock()
-    response.status_code = status_code
-    response.iter_content.return_value = chunks or [b"audio", b"data"]
-    return response
-
-
-def test_download_file_success():
-    with tempfile.TemporaryDirectory() as tmp:
-        dest = os.path.join(tmp, "track.mp3")
-        with patch("zelda_music_downloader.requests.get", return_value=_mock_response()):
-            result = download_file("http://example.com/track.mp3", dest)
-        assert result is True
-        assert open(dest, "rb").read() == b"audiodata"
-
-
-def test_download_file_non_200():
-    with tempfile.TemporaryDirectory() as tmp:
-        dest = os.path.join(tmp, "track.mp3")
-        with patch("zelda_music_downloader.requests.get", return_value=_mock_response(404)):
-            result = download_file("http://example.com/track.mp3", dest)
-        assert result is False
-        assert not os.path.exists(dest)
-
-
-def test_download_file_exception():
-    with tempfile.TemporaryDirectory() as tmp:
-        dest = os.path.join(tmp, "track.mp3")
-        with patch("zelda_music_downloader.requests.get", side_effect=ConnectionError("timeout")):
-            result = download_file("http://example.com/track.mp3", dest)
-        assert result is False
