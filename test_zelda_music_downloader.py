@@ -1,9 +1,10 @@
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zelda_music_downloader import create_directory, sanitize_filename
+from zelda_music_downloader import create_directory, download_file, sanitize_filename
 
 
 @pytest.mark.parametrize(
@@ -37,3 +38,49 @@ def test_create_directory_existing_is_noop():
     with tempfile.TemporaryDirectory() as tmp:
         create_directory(tmp)
         assert os.path.isdir(tmp)
+
+
+def _mock_response(status_code=200, chunks=None):
+    response = MagicMock()
+    response.status_code = status_code
+    response.iter_content.return_value = chunks or [b"data"]
+    return response
+
+
+def test_download_file_success():
+    with tempfile.TemporaryDirectory() as tmp:
+        filepath = os.path.join(tmp, "track.mp3")
+        with patch("zelda_music_downloader.requests.get") as mock_get:
+            mock_get.return_value = _mock_response(200, [b"chunk1", b"chunk2"])
+            result = download_file("http://example.com/track.mp3", filepath)
+        assert result is True
+        assert open(filepath, "rb").read() == b"chunk1chunk2"
+
+
+def test_download_file_non_200_returns_false():
+    with tempfile.TemporaryDirectory() as tmp:
+        filepath = os.path.join(tmp, "track.mp3")
+        with patch("zelda_music_downloader.requests.get") as mock_get:
+            mock_get.return_value = _mock_response(404)
+            result = download_file("http://example.com/track.mp3", filepath)
+        assert result is False
+        assert not os.path.exists(filepath)
+
+
+def test_download_file_request_exception_returns_false():
+    with tempfile.TemporaryDirectory() as tmp:
+        filepath = os.path.join(tmp, "track.mp3")
+        with patch(
+            "zelda_music_downloader.requests.get", side_effect=Exception("timeout")
+        ):
+            result = download_file("http://example.com/track.mp3", filepath)
+        assert result is False
+
+
+def test_download_file_skips_empty_chunks():
+    with tempfile.TemporaryDirectory() as tmp:
+        filepath = os.path.join(tmp, "track.mp3")
+        with patch("zelda_music_downloader.requests.get") as mock_get:
+            mock_get.return_value = _mock_response(200, [b"real", b"", b"data"])
+            download_file("http://example.com/track.mp3", filepath)
+        assert open(filepath, "rb").read() == b"realdata"
