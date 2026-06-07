@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zelda_music_downloader import create_directory, download_file, sanitize_filename
+from zelda_music_downloader import (
+    create_directory,
+    download_file,
+    get_album_urls,
+    process_album_page,
+    sanitize_filename,
+)
 
 
 @pytest.mark.parametrize(
@@ -84,3 +90,95 @@ def test_download_file_skips_empty_chunks():
             mock_get.return_value = _mock_response(200, [b"real", b"", b"data"])
             download_file("http://example.com/track.mp3", filepath)
         assert open(filepath, "rb").read() == b"realdata"
+
+
+def _mock_html_response(html):
+    response = MagicMock()
+    response.text = html
+    return response
+
+
+_BASE_URL = "https://zeldauniverse.net/media/music/"
+
+_ALBUM_PAGE_HTML = """
+<html><body>
+  <a href="https://zeldauniverse.net/media/music/">Music</a>
+  <a href="https://zeldauniverse.net/media/music/ocarina-of-time/">Ocarina of Time</a>
+  <a href="https://zeldauniverse.net/media/music/majoras-mask/">Majora's Mask</a>
+  <a href="https://zeldauniverse.net/about/">About</a>
+</body></html>
+"""
+
+
+def test_get_album_urls_returns_album_links():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_ALBUM_PAGE_HTML)
+        urls = get_album_urls()
+    assert "https://zeldauniverse.net/media/music/ocarina-of-time/" in urls
+    assert "https://zeldauniverse.net/media/music/majoras-mask/" in urls
+
+
+def test_get_album_urls_excludes_base_url():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_ALBUM_PAGE_HTML)
+        urls = get_album_urls()
+    assert _BASE_URL not in urls
+
+
+def test_get_album_urls_excludes_unrelated_links():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_ALBUM_PAGE_HTML)
+        urls = get_album_urls()
+    assert "https://zeldauniverse.net/about/" not in urls
+
+
+_TRACK_PAGE_HTML = """
+<html><body>
+  <a href="https://zeldauniverse.s3.amazonaws.com/oot/01%20Title%20Theme.mp3">Title Theme</a>
+  <a href="https://zeldauniverse.s3.amazonaws.com/oot/02%20Kokiri%20Forest.mp3">Kokiri Forest</a>
+  <a href="https://other.example.com/music/track.mp3">External</a>
+  <a href="https://zeldauniverse.net/media/music/ocarina-of-time/">Back</a>
+</body></html>
+"""
+
+
+def test_process_album_page_returns_mp3_links():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_TRACK_PAGE_HTML)
+        links = process_album_page(
+            "https://zeldauniverse.net/media/music/ocarina-of-time/"
+        )
+    urls = [url for url, _ in links]
+    assert "https://zeldauniverse.s3.amazonaws.com/oot/01%20Title%20Theme.mp3" in urls
+    assert "https://zeldauniverse.s3.amazonaws.com/oot/02%20Kokiri%20Forest.mp3" in urls
+
+
+def test_process_album_page_decodes_filenames():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_TRACK_PAGE_HTML)
+        links = process_album_page(
+            "https://zeldauniverse.net/media/music/ocarina-of-time/"
+        )
+    filenames = [name for _, name in links]
+    assert "01 Title Theme.mp3" in filenames
+    assert "02 Kokiri Forest.mp3" in filenames
+
+
+def test_process_album_page_excludes_other_domains():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_TRACK_PAGE_HTML)
+        links = process_album_page(
+            "https://zeldauniverse.net/media/music/ocarina-of-time/"
+        )
+    urls = [url for url, _ in links]
+    assert "https://other.example.com/music/track.mp3" not in urls
+
+
+def test_process_album_page_excludes_non_mp3():
+    with patch("zelda_music_downloader.requests.get") as mock_get:
+        mock_get.return_value = _mock_html_response(_TRACK_PAGE_HTML)
+        links = process_album_page(
+            "https://zeldauniverse.net/media/music/ocarina-of-time/"
+        )
+    urls = [url for url, _ in links]
+    assert "https://zeldauniverse.net/media/music/ocarina-of-time/" not in urls
