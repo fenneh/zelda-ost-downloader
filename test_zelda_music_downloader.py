@@ -8,6 +8,7 @@ from zelda_music_downloader import (
     create_directory,
     download_file,
     get_album_urls,
+    main,
     process_album_page,
     sanitize_filename,
 )
@@ -182,3 +183,47 @@ def test_process_album_page_excludes_non_mp3():
         )
     urls = [url for url, _ in links]
     assert "https://zeldauniverse.net/media/music/ocarina-of-time/" not in urls
+
+
+_ALBUM_URL = "https://zeldauniverse.net/media/music/ocarina-of-time/"
+_MP3_URL = "https://zeldauniverse.s3.amazonaws.com/oot/01.mp3"
+_MP3_FILENAME = "01 Title Theme.mp3"
+_MP3_TRACK = [(_MP3_URL, _MP3_FILENAME)]
+
+
+def test_main_downloads_new_track():
+    with (
+        patch("zelda_music_downloader.get_album_urls", return_value=[_ALBUM_URL]),
+        patch("zelda_music_downloader.process_album_page", return_value=_MP3_TRACK),
+        patch("zelda_music_downloader.create_directory"),
+        patch("zelda_music_downloader.os.path.exists", return_value=False),
+        patch("zelda_music_downloader.download_file", return_value=True) as mock_dl,
+    ):
+        main()
+    mock_dl.assert_called_once()
+    assert mock_dl.call_args[0][0] == _MP3_URL
+
+
+def test_main_skips_existing_track():
+    with (
+        patch("zelda_music_downloader.get_album_urls", return_value=[_ALBUM_URL]),
+        patch("zelda_music_downloader.process_album_page", return_value=_MP3_TRACK),
+        patch("zelda_music_downloader.create_directory"),
+        patch("zelda_music_downloader.os.path.exists", return_value=True),
+        patch("zelda_music_downloader.download_file", return_value=True) as mock_dl,
+    ):
+        main()
+    mock_dl.assert_not_called()
+
+
+def test_main_creates_base_directory():
+    with (
+        patch("zelda_music_downloader.get_album_urls", return_value=[_ALBUM_URL]),
+        patch("zelda_music_downloader.process_album_page", return_value=_MP3_TRACK),
+        patch("zelda_music_downloader.create_directory") as mock_mkdir,
+        patch("zelda_music_downloader.os.path.exists", return_value=False),
+        patch("zelda_music_downloader.download_file", return_value=True),
+    ):
+        main()
+    dirs_created = [call[0][0] for call in mock_mkdir.call_args_list]
+    assert "zelda_music" in dirs_created
