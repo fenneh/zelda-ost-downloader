@@ -1,14 +1,13 @@
+import re
+from pathlib import Path
+from urllib.parse import unquote
+
 import requests
 from bs4 import BeautifulSoup
-import os
-import re
-from urllib.parse import unquote
 
 
 def create_directory(path):
-    """Create directory if it doesn't exist"""
-    if not os.path.exists(path):
-        os.makedirs(path)
+    Path(path).mkdir(parents=True, exist_ok=True)
 
 
 def sanitize_filename(filename):
@@ -38,7 +37,6 @@ def get_album_urls():
     response = requests.get(base_url)
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Find all album links
     album_links = []
     for link in soup.find_all("a", href=True):
         href = link["href"]
@@ -63,33 +61,26 @@ def process_album_page(album_url):
 
 
 def main():
-    # Create base directory for downloads
-    base_dir = "zelda_music"
+    base_dir = Path("zelda_music")
     create_directory(base_dir)
 
-    # Get all album URLs
     album_urls = get_album_urls()
     print(f"Found {len(album_urls)} albums")
 
-    # Process each album
     for album_url in album_urls:
-        # Get album name from URL
         album_name = album_url.rstrip("/").split("/")[-1].replace("-", " ").title()
         print(f"\nProcessing album: {album_name}")
 
-        # Create album directory
-        album_dir = os.path.join(base_dir, sanitize_filename(album_name))
+        album_dir = base_dir / sanitize_filename(album_name)
         create_directory(album_dir)
 
-        # Get MP3 links from album page
         mp3_links = process_album_page(album_url)
         print(f"Found {len(mp3_links)} tracks")
 
-        # Download each MP3
         for mp3_url, filename in mp3_links:
-            filepath = os.path.join(album_dir, sanitize_filename(filename))
+            filepath = album_dir / sanitize_filename(filename)
 
-            if not os.path.exists(filepath):
+            if not filepath.exists():
                 print(f"Downloading: {filename}")
                 if download_file(mp3_url, filepath):
                     print(f"Successfully downloaded: {filename}")

@@ -196,7 +196,7 @@ def test_main_downloads_new_track():
         patch("zelda_music_downloader.get_album_urls", return_value=[_ALBUM_URL]),
         patch("zelda_music_downloader.process_album_page", return_value=_MP3_TRACK),
         patch("zelda_music_downloader.create_directory"),
-        patch("zelda_music_downloader.os.path.exists", return_value=False),
+        patch("pathlib.Path.exists", return_value=False),
         patch("zelda_music_downloader.download_file", return_value=True) as mock_dl,
     ):
         main()
@@ -209,7 +209,7 @@ def test_main_skips_existing_track():
         patch("zelda_music_downloader.get_album_urls", return_value=[_ALBUM_URL]),
         patch("zelda_music_downloader.process_album_page", return_value=_MP3_TRACK),
         patch("zelda_music_downloader.create_directory"),
-        patch("zelda_music_downloader.os.path.exists", return_value=True),
+        patch("pathlib.Path.exists", return_value=True),
         patch("zelda_music_downloader.download_file", return_value=True) as mock_dl,
     ):
         main()
@@ -221,9 +221,9 @@ def test_main_creates_base_directory():
         patch("zelda_music_downloader.get_album_urls", return_value=[_ALBUM_URL]),
         patch("zelda_music_downloader.process_album_page", return_value=_MP3_TRACK),
         patch("zelda_music_downloader.create_directory") as mock_mkdir,
-        patch("zelda_music_downloader.os.path.exists", return_value=False),
+        patch("pathlib.Path.exists", return_value=False),
         patch("zelda_music_downloader.download_file", return_value=True),
     ):
         main()
-    dirs_created = [call[0][0] for call in mock_mkdir.call_args_list]
+    dirs_created = [str(call[0][0]) for call in mock_mkdir.call_args_list]
     assert "zelda_music" in dirs_created
