@@ -1,5 +1,5 @@
-import os
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,16 +35,16 @@ def test_sanitize_filename(filename, expected):
 
 def test_create_directory_creates_new():
     with tempfile.TemporaryDirectory() as tmp:
-        new_dir = os.path.join(tmp, "subdir")
-        assert not os.path.exists(new_dir)
+        new_dir = Path(tmp) / "subdir"
+        assert not new_dir.exists()
         create_directory(new_dir)
-        assert os.path.isdir(new_dir)
+        assert new_dir.is_dir()
 
 
 def test_create_directory_existing_is_noop():
     with tempfile.TemporaryDirectory() as tmp:
         create_directory(tmp)
-        assert os.path.isdir(tmp)
+        assert Path(tmp).is_dir()
 
 
 def _mock_response(status_code=200, chunks=None):
@@ -56,27 +56,27 @@ def _mock_response(status_code=200, chunks=None):
 
 def test_download_file_success():
     with tempfile.TemporaryDirectory() as tmp:
-        filepath = os.path.join(tmp, "track.mp3")
+        filepath = Path(tmp) / "track.mp3"
         with patch("zelda_music_downloader.requests.get") as mock_get:
             mock_get.return_value = _mock_response(200, [b"chunk1", b"chunk2"])
             result = download_file("http://example.com/track.mp3", filepath)
         assert result is True
-        assert open(filepath, "rb").read() == b"chunk1chunk2"
+        assert filepath.read_bytes() == b"chunk1chunk2"
 
 
 def test_download_file_non_200_returns_false():
     with tempfile.TemporaryDirectory() as tmp:
-        filepath = os.path.join(tmp, "track.mp3")
+        filepath = Path(tmp) / "track.mp3"
         with patch("zelda_music_downloader.requests.get") as mock_get:
             mock_get.return_value = _mock_response(404)
             result = download_file("http://example.com/track.mp3", filepath)
         assert result is False
-        assert not os.path.exists(filepath)
+        assert not filepath.exists()
 
 
 def test_download_file_request_exception_returns_false():
     with tempfile.TemporaryDirectory() as tmp:
-        filepath = os.path.join(tmp, "track.mp3")
+        filepath = Path(tmp) / "track.mp3"
         with patch(
             "zelda_music_downloader.requests.get", side_effect=Exception("timeout")
         ):
@@ -86,11 +86,11 @@ def test_download_file_request_exception_returns_false():
 
 def test_download_file_skips_empty_chunks():
     with tempfile.TemporaryDirectory() as tmp:
-        filepath = os.path.join(tmp, "track.mp3")
+        filepath = Path(tmp) / "track.mp3"
         with patch("zelda_music_downloader.requests.get") as mock_get:
             mock_get.return_value = _mock_response(200, [b"real", b"", b"data"])
             download_file("http://example.com/track.mp3", filepath)
-        assert open(filepath, "rb").read() == b"realdata"
+        assert filepath.read_bytes() == b"realdata"
 
 
 def _mock_html_response(html):
