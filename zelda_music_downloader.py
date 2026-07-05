@@ -28,6 +28,7 @@ def download_file(url, filepath):
         return False
     except Exception as e:
         print(f"Error downloading {url}: {str(e)}")
+        Path(filepath).unlink(missing_ok=True)
         return False
 
 

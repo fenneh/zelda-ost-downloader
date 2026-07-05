@@ -84,6 +84,18 @@ def test_download_file_request_exception_returns_false():
         assert result is False
 
 
+def test_download_file_cleans_up_partial_file_on_error():
+    with tempfile.TemporaryDirectory() as tmp:
+        filepath = Path(tmp) / "track.mp3"
+        response = MagicMock()
+        response.status_code = 200
+        response.iter_content.side_effect = Exception("connection dropped")
+        with patch("zelda_music_downloader.requests.get", return_value=response):
+            result = download_file("http://example.com/track.mp3", filepath)
+        assert result is False
+        assert not filepath.exists()
+
+
 def test_download_file_skips_empty_chunks():
     with tempfile.TemporaryDirectory() as tmp:
         filepath = Path(tmp) / "track.mp3"
