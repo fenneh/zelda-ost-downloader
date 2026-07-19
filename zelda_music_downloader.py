@@ -6,17 +6,15 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def create_directory(path):
+def create_directory(path: Path | str) -> None:
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def sanitize_filename(filename):
-    """Remove invalid characters from filename"""
+def sanitize_filename(filename: str) -> str:
     return re.sub(r'[<>:"/\\|?*]', "", filename)
 
 
-def download_file(url, filepath):
-    """Download file from url to filepath"""
+def download_file(url: str, filepath: Path) -> bool:
     try:
         response = requests.get(url, stream=True)
         if response.status_code == 200:
@@ -32,8 +30,7 @@ def download_file(url, filepath):
         return False
 
 
-def get_album_urls():
-    """Get list of album URLs from main music page"""
+def get_album_urls() -> list[str]:
     base_url = "https://zeldauniverse.net/media/music/"
     response = requests.get(base_url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -47,8 +44,7 @@ def get_album_urls():
     return album_links
 
 
-def process_album_page(album_url):
-    """Process single album page and return list of MP3 URLs"""
+def process_album_page(album_url: str) -> list[tuple[str, str]]:
     response = requests.get(album_url)
     soup = BeautifulSoup(response.text, "html.parser")
 
